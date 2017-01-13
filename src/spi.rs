@@ -64,15 +64,11 @@ impl<SCK, SS, MOSI, MISO> BitBangingSerial<SCK, SS, MOSI, MISO>
         }
     }
 
-    fn write_bit(&mut self, bit: bool) -> bool {
+    fn write_bit(&mut self, bit: bool) -> pin::PinState {
         self.sck.low();
-        if bit {
-            self.mosi.high();
-        } else {
-            self.mosi.low();
-        }
+        self.mosi.write(bit.into());
         self.sck.high();
-        self.miso.is_high()
+        self.miso.read()
     }
 }
 
