@@ -4,7 +4,7 @@
 //! and implemented by actual hardware controllers.
 #![no_std]
 
-#[cfg(test)]
+#[cfg(feature = "debug")]
 #[macro_use]
 extern crate std;
 

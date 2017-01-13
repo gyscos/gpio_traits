@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Alexandre Bury <alexandre.bury@gmail.com>"]
 
 [dependencies]
+
+[features]
+debug = [] # Enable debug utilities, and pull libstd

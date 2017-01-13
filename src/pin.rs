@@ -10,8 +10,18 @@ pub trait Input {
     fn is_high(&mut self) -> bool;
 }
 
-impl<U, L> Output for (U, L)
-    where U: FnMut(),
+impl <'a, O: Output> Output for &'a mut O {
+    fn high(&mut self) {
+        (**self).high();
+    }
+
+    fn low(&mut self) {
+        (**self).low();
+    }
+}
+
+impl<H, L> Output for (H, L)
+    where H: FnMut(),
           L: FnMut()
 {
     fn high(&mut self) {
@@ -23,11 +33,32 @@ impl<U, L> Output for (U, L)
     }
 }
 
-impl<F> Input for F
+/// Inverse any input or output on the wrapped pin.
+pub struct Not<P> (pub P);
+
+impl <O: Output> Output for Not<O> {
+    fn high(&mut self) {
+        self.0.low();
+    }
+
+    fn low(&mut self) {
+        self.0.high()
+    }
+}
+
+impl <I: Input> Input for Not<I> {
+    fn is_high(&mut self) -> bool {
+        !self.0.is_high()
+    }
+}
+
+pub struct InputFn<F: FnMut() -> bool> (pub F);
+
+impl<F> Input for InputFn<F>
     where F: FnMut() -> bool
 {
     fn is_high(&mut self) -> bool {
-        (*self)()
+        (self.0)()
     }
 }
 
@@ -53,22 +84,22 @@ impl Input for DummyPin {
 }
 
 
-#[cfg(test)]
+#[cfg(feature = "debug")]
 pub struct DebugPin {
     name: ::std::string::String,
 }
 
-#[cfg(test)]
+#[cfg(feature = "debug")]
 use ::std::string::ToString;
 
-#[cfg(test)]
+#[cfg(feature = "debug")]
 impl DebugPin {
     pub fn new<S: ToString>(name: S) -> Self {
         DebugPin { name: name.to_string() }
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "debug")]
 impl Output for DebugPin {
     fn high(&mut self) {
         println!("{} HIGH", self.name);
