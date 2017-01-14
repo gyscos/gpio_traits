@@ -1,19 +1,24 @@
+//! Serial Peripheral Interface (SPI).
+
 use pin;
+use bits;
 
 /// A SPI device
-pub trait Serial {
+pub trait Master {
     // TODO: write bits?
-    // Write &[u8]?
+    // though most SPI implementations I found were also limited to bytes.
+
+    // TODO: Write &mut [u8]?
     /// Simultaneously read and write.
-    fn write(&mut self, data: u8) -> u8;
+    fn read_write(&mut self, data: u8) -> u8;
 }
 
 /// Dummy SPI device
-pub struct DummySerial;
+pub struct Dummy;
 
-impl Serial for DummySerial {
+impl Master for Dummy {
     /// Ignores input and always return `0`.
-    fn write(&mut self, _: u8) -> u8 {
+    fn read_write(&mut self, _: u8) -> u8 {
         0
     }
 }
@@ -21,12 +26,12 @@ impl Serial for DummySerial {
 
 #[cfg(feature = "debug")]
 /// Debug SPI device that prints input.
-pub struct DebugSerial;
+pub struct Debug;
 
 #[cfg(feature = "debug")]
-impl Serial for DebugSerial {
+impl Master for Debug {
     /// Prints input and returns 0.
-    fn write(&mut self, data: u8) -> u8 {
+    fn read_write(&mut self, data: u8) -> u8 {
         println!("SPI: {:08b}", data);
         0
     }
@@ -34,9 +39,8 @@ impl Serial for DebugSerial {
 
 // TODO: handle baudrate configuration?
 // TODO: handle sleep between clock cycles
-// TODO: better slave select
 /// A bit-banging implementation of SPI on gpio pins.
-pub struct BitBangingSerial<SCK, MOSI, MISO>
+pub struct BitBanging<SCK, MOSI, MISO>
     where SCK: pin::Output,
           MOSI: pin::Output,
           MISO: pin::Input
@@ -46,7 +50,7 @@ pub struct BitBangingSerial<SCK, MOSI, MISO>
     miso: MISO,
 }
 
-impl<SCK, MOSI, MISO> BitBangingSerial<SCK, MOSI, MISO>
+impl<SCK, MOSI, MISO> BitBanging<SCK, MOSI, MISO>
     where SCK: pin::Output,
           MOSI: pin::Output,
           MISO: pin::Input
@@ -56,16 +60,16 @@ impl<SCK, MOSI, MISO> BitBangingSerial<SCK, MOSI, MISO>
     /// * `mosi`: Master Out, Slave In
     /// * `miso`: Master In, Slave Out
     pub fn new(sck: SCK, mosi: MOSI, miso: MISO) -> Self {
-        BitBangingSerial {
+        BitBanging {
             sck: sck,
             mosi: mosi,
             miso: miso,
         }
     }
 
-    fn write_bit(&mut self, bit: bool) -> pin::PinState {
+    fn write_bit(&mut self, bit: pin::PinState) -> pin::PinState {
         self.sck.low();
-        self.mosi.write(bit.into());
+        self.mosi.write(bit);
         // DELAY
         self.sck.high();
         self.miso.read()
@@ -73,23 +77,13 @@ impl<SCK, MOSI, MISO> BitBangingSerial<SCK, MOSI, MISO>
     }
 }
 
-impl<SCK, MOSI, MISO> Serial for BitBangingSerial<SCK, MOSI, MISO>
+impl<SCK, MOSI, MISO> Master for BitBanging<SCK, MOSI, MISO>
     where SCK: pin::Output,
           MOSI: pin::Output,
           MISO: pin::Input
 {
-    fn write(&mut self, data: u8) -> u8 {
+    fn read_write(&mut self, data: u8) -> u8 {
 
-        let result = ((self.write_bit((data & 0b10000000) != 0) as u8) << 7) |
-                     ((self.write_bit((data & 0b01000000) != 0) as u8) << 6) |
-                     ((self.write_bit((data & 0b00100000) != 0) as u8) << 5) |
-                     ((self.write_bit((data & 0b00010000) != 0) as u8) << 4) |
-                     ((self.write_bit((data & 0b00001000) != 0) as u8) << 3) |
-                     ((self.write_bit((data & 0b00000100) != 0) as u8) << 2) |
-                     ((self.write_bit((data & 0b00000010) != 0) as u8) << 1) |
-                     (self.write_bit((data & 0b00000001) != 0) as u8);
-
-
-        result
+        bits::msb_to_byte(bits::foreach_msb(data, |bit| self.write_bit(bit)))
     }
 }

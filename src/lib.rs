@@ -8,5 +8,10 @@
 #[macro_use]
 extern crate std;
 
+pub mod bits;
 pub mod pin;
+
 pub mod spi;
+
+// pub mod i2c;
+// pub mod w1;

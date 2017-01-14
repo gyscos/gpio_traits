@@ -1,3 +1,5 @@
+//! Traits for individual GPIO pins.
+
 /// Possible state for a pin
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[repr(u8)]
@@ -8,15 +10,32 @@ pub enum PinState {
 
 /// An output GPIO pin.
 pub trait Output {
+    /// Sets this pin to High
     fn high(&mut self);
+    /// Sets this pin to Low
     fn low(&mut self);
 
+    /// Set this pin to the given state
     fn write(&mut self, bit: PinState) {
         if bit.is_high() {
             self.high();
         } else {
             self.low();
         }
+    }
+
+    /// Runs a task while self is high, then set to low.
+    fn as_high<F: FnOnce()>(&mut self, f: F) {
+        self.high();
+        f();
+        self.low();
+    }
+
+    /// Runs a task while self is low, then set to high.
+    fn as_low<F: FnOnce()>(&mut self, f: F) {
+        self.low();
+        f();
+        self.high();
     }
 }
 
